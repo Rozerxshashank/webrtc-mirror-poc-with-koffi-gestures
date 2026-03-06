@@ -1,0 +1,71 @@
+body {
+    font-family: sans-serif;
+    background-color: #f0f0f0;
+    color: #333;
+    margin: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.container {
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 20px;
+    border-radius: 4px;
+    max-width: 800px;
+    width: 100%;
+}
+
+#status,
+#status-badge {
+    margin: 10px 0;
+    padding: 5px 10px;
+    background: #eee;
+    border: 1px solid #ddd;
+    display: inline-block;
+}
+
+video {
+    width: 100%;
+    background: #000;
+    margin-top: 10px;
+}
+
+button {
+    padding: 10px 20px;
+    cursor: pointer;
+}
+
+.receiver-view {
+    margin: 0;
+    height: 100vh;
+}
+
+#remote-container {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    background: #000;
+}
+
+#overlay {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    padding: 5px;
+    display: none;
+}
+
+#trackpad {
+    height: 150px;
+    width: 100%;
+    background: #ddd;
+    border-top: 1px solid #bbb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #888;
+}

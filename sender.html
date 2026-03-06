@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rein Mirror - Sender</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Rein Mirror (Sender)</h1>
+        <div id="status-badge">Disconnected</div>
+        <button id="start-btn">Start Share</button>
+        <video id="preview" autoplay muted playsinline></video>
+    </div>
+
+    <script src="WebRTCManager.js"></script>
+    <script>
+        const statusBadge = document.getElementById('status-badge');
+        const startBtn = document.getElementById('start-btn');
+        const previewVideo = document.getElementById('preview');
+
+        const roomId = "rein-gsoc-test";
+        const rtc = new WebRTCManager('sender', roomId);
+
+        rtc.onStatusUpdate = (msg) => {
+            statusBadge.innerText = msg;
+        };
+
+        rtc.onConnectionStateChange = (state) => {
+            statusBadge.innerText = "Connection: " + state;
+        };
+
+        rtc.onInputReceived = (data) => {
+            if (rtc.socket && rtc.socket.readyState === WebSocket.OPEN) {
+                rtc.socket.send(JSON.stringify({ type: 'input', roomId, payload: data }));
+            }
+        };
+
+        startBtn.addEventListener('click', async () => {
+            try {
+                const stream = await rtc.startCapture();
+                previewVideo.srcObject = stream;
+                startBtn.disabled = true;
+                startBtn.innerText = "Sharing...";
+            } catch (err) {
+                statusBadge.innerText = "Error: " + err.message;
+            }
+        });
+
+        rtc.init();
+    </script>
+</body>
+
+</html>

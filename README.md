@@ -23,8 +23,12 @@
    ```
    *Note: You may need to logout and login for group changes to take effect.*
 
-3. **macOS Permissions**:
-   On macOS, you may need to grant **Accessibility** permissions to the terminal (e.g., Terminal or iTerm2) running the signaling server.
+3. **macOS / LAN Permissions**:
+   - **Accessibility**: Grant Accessibility permissions to your terminal (Settings > Privacy & Security > Accessibility).
+   - **Secure Context (Required)**: Browsers block screen sharing on insecure IPs. To test over LAN:
+     1. Open Chrome and go to: `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
+     2. Add your sender URL: `http://10.110.153.74:3000`
+     3. Select **Enabled** and Relaunch.
 
 ## Run
 1. **Start Signaling Server**:

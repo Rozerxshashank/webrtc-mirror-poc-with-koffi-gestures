@@ -73,6 +73,10 @@ class WebRTCManager {
         if (this.role !== 'sender') return;
 
         try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                throw new Error("Screen sharing requires a Secure Context (HTTPS or localhost). " +
+                    "If testing over LAN, enable the 'unsafely-treat-insecure-origin-as-secure' flag in your browser.");
+            }
             const stream = await navigator.mediaDevices.getDisplayMedia({
                 video: { cursor: "always", frameRate: 60 },
                 audio: false

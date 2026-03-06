@@ -3,6 +3,7 @@
 ## Cross-Platform Support
 - **Windows**: Works out of the box.
 - **Linux (Wayland/X11)**: Supported via `uinput`.
+- **macOS**: Supported via `CoreGraphics`.
 
 ## Setup
 1. **Install dependencies**:
@@ -21,6 +22,9 @@
    sudo udevadm control --reload-rules && sudo udevadm trigger
    ```
    *Note: You may need to logout and login for group changes to take effect.*
+
+3. **macOS Permissions**:
+   On macOS, you may need to grant **Accessibility** permissions to the terminal (e.g., Terminal or iTerm2) running the signaling server.
 
 ## Run
 1. **Start Signaling Server**:

@@ -12,14 +12,9 @@ const platform = os.platform();
 
 if (platform === 'win32') {
     const user32 = koffi.load('user32.dll');
-    const INPUT_MOUSE = 0;
-    const INPUT_KEYBOARD = 1;
-    const MOUSEEVENTF_LEFTDOWN = 0x0002;
-    const MOUSEEVENTF_LEFTUP = 0x0004;
-    const MOUSEEVENTF_WHEEL = 0x0800;
-    const KEYEVENTF_KEYUP = 0x0002;
-    const VK_CONTROL = 0x11;
-
+    const INPUT_MOUSE = 0, INPUT_KEYBOARD = 1;
+    const MOUSEEVENTF_LEFTDOWN = 0x0002, MOUSEEVENTF_LEFTUP = 0x0004, MOUSEEVENTF_WHEEL = 0x0800;
+    const KEYEVENTF_KEYUP = 0x0002, VK_CONTROL = 0x11;
     const POINT = koffi.struct('POINT', { x: 'long', y: 'long' });
     const GetCursorPos = user32.func('bool __stdcall GetCursorPos(_Out_ POINT *lpPoint)');
     const SetCursorPos = user32.func('bool __stdcall SetCursorPos(int X, int Y)');
@@ -27,7 +22,6 @@ if (platform === 'win32') {
     const KEYBDINPUT = koffi.struct('KEYBDINPUT', { wVk: 'uint16_t', wScan: 'uint16_t', dwFlags: 'uint32_t', time: 'uint32_t', dwExtraInfo: 'uintptr_t' });
     const INPUT = koffi.struct('INPUT', { type: 'uint32_t', u: koffi.union({ mi: MOUSEINPUT, ki: KEYBDINPUT }) });
     const SendInput = user32.func('unsigned int __stdcall SendInput(unsigned int cInputs, INPUT *pInputs, int cbSize)');
-    const SZ = koffi.sizeof(INPUT);
 
     driver = {
         move(dx, dy) {
@@ -36,17 +30,17 @@ if (platform === 'win32') {
             SetCursorPos(pt.x + Math.round(dx), pt.y + Math.round(dy));
         },
         click() {
-            SendInput(2, [{ type: INPUT_MOUSE, u: { mi: { dx: 0, dy: 0, mouseData: 0, dwFlags: MOUSEEVENTF_LEFTDOWN, time: 0, dwExtraInfo: 0 } } }, { type: INPUT_MOUSE, u: { mi: { dx: 0, dy: 0, mouseData: 0, dwFlags: MOUSEEVENTF_LEFTUP, time: 0, dwExtraInfo: 0 } } }], SZ);
+            SendInput(2, [{ type: INPUT_MOUSE, u: { mi: { dx: 0, dy: 0, mouseData: 0, dwFlags: MOUSEEVENTF_LEFTDOWN, time: 0, dwExtraInfo: 0 } } }, { type: INPUT_MOUSE, u: { mi: { dx: 0, dy: 0, mouseData: 0, dwFlags: MOUSEEVENTF_LEFTUP, time: 0, dwExtraInfo: 0 } } }], koffi.sizeof(INPUT));
         },
         scroll(delta) {
-            SendInput(1, [{ type: INPUT_MOUSE, u: { mi: { dx: 0, dy: 0, mouseData: Math.round(delta), dwFlags: MOUSEEVENTF_WHEEL, time: 0, dwExtraInfo: 0 } } }], SZ);
+            SendInput(1, [{ type: INPUT_MOUSE, u: { mi: { dx: 0, dy: 0, mouseData: Math.round(delta), dwFlags: MOUSEEVENTF_WHEEL, time: 0, dwExtraInfo: 0 } } }], koffi.sizeof(INPUT));
         },
         zoom(delta) {
             SendInput(3, [
                 { type: INPUT_KEYBOARD, u: { ki: { wVk: VK_CONTROL, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 } } },
                 { type: INPUT_MOUSE, u: { mi: { dx: 0, dy: 0, mouseData: Math.round(delta), dwFlags: MOUSEEVENTF_WHEEL, time: 0, dwExtraInfo: 0 } } },
                 { type: INPUT_KEYBOARD, u: { ki: { wVk: VK_CONTROL, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
-            ], SZ);
+            ], koffi.sizeof(INPUT));
         }
     };
 } else if (platform === 'linux') {
@@ -59,45 +53,77 @@ if (platform === 'win32') {
         const ioctl_ptr = libc.func('int ioctl(int fd, unsigned long request, uinput_setup *arg)');
         const write_event = libc.func('intptr_t write(int fd, const input_event *buf, uintptr_t count)');
 
-        const EV_SYN = 0, EV_KEY = 1, EV_REL = 2;
-        const REL_X = 0, REL_Y = 1, REL_WHEEL = 8;
-        const BTN_LEFT = 272, KEY_LEFTCTRL = 29;
-        const UI_SET_EVBIT = 0x40045564, UI_SET_KEYBIT = 0x40045565, UI_SET_RELBIT = 0x40045566, UI_DEV_SETUP = 0x405c5503, UI_DEV_CREATE = 0x5501;
-
         const fd = open('/dev/uinput', 1 | 2048);
         if (fd >= 0) {
-            ioctl_int(fd, UI_SET_EVBIT, EV_KEY);
-            ioctl_int(fd, UI_SET_EVBIT, EV_REL);
-            ioctl_int(fd, UI_SET_EVBIT, EV_SYN);
-            ioctl_int(fd, UI_SET_KEYBIT, BTN_LEFT);
-            ioctl_int(fd, UI_SET_KEYBIT, KEY_LEFTCTRL);
-            ioctl_int(fd, UI_SET_RELBIT, REL_X);
-            ioctl_int(fd, UI_SET_RELBIT, REL_Y);
-            ioctl_int(fd, UI_SET_RELBIT, REL_WHEEL);
+            [0, 1, 2].forEach(ev => ioctl_int(fd, 0x40045564, ev)); // UI_SET_EVBIT
+            [272, 29].forEach(key => ioctl_int(fd, 0x40045565, key)); // UI_SET_KEYBIT
+            [0, 1, 8].forEach(rel => ioctl_int(fd, 0x40045566, rel)); // UI_SET_RELBIT
 
             const setup = { id_bustype: 0x03, id_vendor: 0x1234, id_product: 0x5678, id_version: 1, name: Array.from('rein-webrtc-input').map(c => c.charCodeAt(0)).concat(new Array(62).fill(0)), ff_effects_max: 0 };
-            ioctl_ptr(fd, UI_DEV_SETUP, setup);
-            ioctl_int(fd, UI_DEV_CREATE, 0);
+            ioctl_ptr(fd, 0x405c5503, setup); // UI_DEV_SETUP
+            ioctl_int(fd, 0x5501, 0); // UI_DEV_CREATE
 
             const emit = (t, c, v) => write_event(fd, { tv_sec: 0, tv_usec: 0, type: t, code: c, value: v }, koffi.sizeof(input_event));
-            const syn = () => emit(EV_SYN, 0, 0);
-
             driver = {
-                move(dx, dy) { emit(EV_REL, REL_X, Math.round(dx)); emit(EV_REL, REL_Y, Math.round(dy)); syn(); },
-                click() { emit(EV_KEY, BTN_LEFT, 1); syn(); emit(EV_KEY, BTN_LEFT, 0); syn(); },
-                scroll(delta) { emit(EV_REL, REL_WHEEL, Math.round(delta / 10)); syn(); },
-                zoom(delta) {
-                    emit(EV_KEY, KEY_LEFTCTRL, 1); syn();
-                    emit(EV_REL, REL_WHEEL, Math.round(delta / 10)); syn();
-                    emit(EV_KEY, KEY_LEFTCTRL, 0); syn();
-                }
+                move(dx, dy) { emit(2, 0, Math.round(dx)); emit(2, 1, Math.round(dy)); emit(0, 0, 0); },
+                click() { emit(1, 272, 1); emit(0, 0, 0); emit(1, 272, 0); emit(0, 0, 0); },
+                scroll(delta) { emit(2, 8, Math.round(delta / 10)); emit(0, 0, 0); },
+                zoom(delta) { emit(1, 29, 1); emit(0, 0, 0); emit(2, 8, Math.round(delta / 10)); emit(0, 0, 0); emit(1, 29, 0); emit(0, 0, 0); }
             };
-            console.log("Linux uinput driver initialized.");
         }
-    } catch (e) { console.log("Failed to init Linux driver:", e.message); }
+    } catch (e) { console.log("Linux init failed:", e.message); }
+} else if (platform === 'darwin') {
+    try {
+        const cg = koffi.load('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics');
+        const cf = koffi.load('/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation');
+        const CGPoint = koffi.struct('CGPoint', { x: 'double', y: 'double' });
+        const CGEventSourceCreate = cg.func('void* CGEventSourceCreate(int stateID)');
+        const CGEventCreateMouseEvent = cg.func('void* CGEventCreateMouseEvent(void *source, int mouseType, CGPoint mouseCursorPosition, int mouseButton)');
+        const CGEventCreateKeyboardEvent = cg.func('void* CGEventCreateKeyboardEvent(void *source, uint16_t virtualKey, bool keyDown)');
+        const CGEventCreateScrollWheelEvent = cg.func('void* CGEventCreateScrollWheelEvent(void *source, int units, uint32_t wheelCount, int32_t wheel1)');
+        const CGEventPost = cg.func('void CGEventPost(int tap, void *event)');
+        const CGEventSetFlags = cg.func('void CGEventSetFlags(void *event, uint64_t flags)');
+        const CFRelease = cf.func('void CFRelease(void *cf)');
+        const CGEventCreate = cg.func('void* CGEventCreate(void *source)');
+        const CGEventGetLocation = cg.func('CGPoint CGEventGetLocation(void *event)');
+
+        function getMousePos() {
+            const ev = CGEventCreate(null);
+            const pos = CGEventGetLocation(ev);
+            CFRelease(ev);
+            return pos;
+        }
+
+        const source = CGEventSourceCreate(0);
+        driver = {
+            move(dx, dy) {
+                const pos = getMousePos();
+                const target = { x: pos.x + dx, y: pos.y + dy };
+                const ev = CGEventCreateMouseEvent(source, 5, target, 0); // kCGEventMouseMoved
+                CGEventPost(0, ev); CFRelease(ev);
+            },
+            click() {
+                const pos = getMousePos();
+                const down = CGEventCreateMouseEvent(source, 1, pos, 0); // kCGEventLeftMouseDown
+                const up = CGEventCreateMouseEvent(source, 2, pos, 0); // kCGEventLeftMouseUp
+                CGEventPost(0, down); CFRelease(down);
+                CGEventPost(0, up); CFRelease(up);
+            },
+            scroll(delta) {
+                const ev = CGEventCreateScrollWheelEvent(source, 0, 1, Math.round(delta / 10));
+                CGEventPost(0, ev); CFRelease(ev);
+            },
+            zoom(delta) {
+                const ev = CGEventCreateScrollWheelEvent(source, 0, 1, Math.round(delta / 10));
+                CGEventSetFlags(ev, 0x40000 | 0x100000); // Control + Command flags
+                CGEventPost(0, ev); CFRelease(ev);
+            }
+        };
+        console.log("macOS CoreGraphics driver initialized.");
+    } catch (e) { console.log("macOS init failed:", e.message); }
 }
 
-console.log(`\n--- Rein Cross-Platform signaling Server ---`);
+console.log(`\n--- Rein Cross-Platform Signaling Server ---`);
 console.log(`Listening on ws://0.0.0.0:${port}\n`);
 
 wss.on('connection', (ws) => {

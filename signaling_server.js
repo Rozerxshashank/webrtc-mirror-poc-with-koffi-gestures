@@ -111,12 +111,13 @@ if (platform === 'win32') {
                 CGEventPost(0, up); CFRelease(up);
             },
             scroll(delta) {
-                const ev = CGEventCreateScrollWheelEvent(source, 1, 1, Math.round(delta / 5) || (delta > 0 ? 1 : -1));
+                // Line units (1) for scrolling
+                const ev = CGEventCreateScrollWheelEvent(source, 1, 1, Math.round(delta / 2) || (delta > 0 ? 1 : -1));
                 CGEventPost(0, ev); CFRelease(ev);
             },
             zoom(delta) {
-                // Command + Scroll is the native macOS zoom shortcut for apps
-                const ev = CGEventCreateScrollWheelEvent(source, 1, 1, Math.round(delta / 5) || (delta > 0 ? 1 : -1));
+                // Use Line units (1) for Zoom too, but with Command flag
+                const ev = CGEventCreateScrollWheelEvent(source, 1, 1, Math.round(delta / 2) || (delta > 0 ? 1 : -1));
                 CGEventSetFlags(ev, kCmdFlag);
                 CGEventPost(0, ev); CFRelease(ev);
             }
@@ -124,10 +125,6 @@ if (platform === 'win32') {
         console.log("macOS CoreGraphics driver initialized.");
     } catch (e) { console.log("macOS init failed:", e.message); }
 }
-
-console.log(`\n--- Rein Cross-Platform Signaling Server ---`);
-console.log(`Listening on ws://0.0.0.0:${port}`);
-console.log(`Platform: ${platform}\n`);
 
 wss.on('connection', (ws) => {
     let currentRoom = null;
@@ -139,13 +136,11 @@ wss.on('connection', (ws) => {
                 currentRoom = roomId;
                 if (!rooms.has(roomId)) rooms.set(roomId, new Set());
                 rooms.get(roomId).add(ws);
-            } else if (type === 'input') {
-                if (driver) {
-                    if (payload.type === 'move') driver.move(payload.dx, payload.dy);
-                    else if (payload.type === 'click') driver.click();
-                    else if (payload.type === 'scroll') driver.scroll(payload.delta);
-                    else if (payload.type === 'zoom') driver.zoom(payload.delta);
-                }
+            } else if (type === 'input' && driver) {
+                if (payload.type === 'move') driver.move(payload.dx, payload.dy);
+                else if (payload.type === 'click') driver.click();
+                else if (payload.type === 'scroll') driver.scroll(payload.delta);
+                else if (payload.type === 'zoom') driver.zoom(payload.delta);
             } else if (currentRoom && rooms.has(currentRoom)) {
                 rooms.get(currentRoom).forEach(client => {
                     if (client !== ws && client.readyState === WebSocket.OPEN) client.send(JSON.stringify({ type: 'signal', payload }));

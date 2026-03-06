@@ -55,13 +55,13 @@ if (platform === 'win32') {
 
         const fd = open('/dev/uinput', 1 | 2048);
         if (fd >= 0) {
-            [0, 1, 2].forEach(ev => ioctl_int(fd, 0x40045564, ev)); // UI_SET_EVBIT
-            [272, 29].forEach(key => ioctl_int(fd, 0x40045565, key)); // UI_SET_KEYBIT
-            [0, 1, 8].forEach(rel => ioctl_int(fd, 0x40045566, rel)); // UI_SET_RELBIT
+            [0, 1, 2].forEach(ev => ioctl_int(fd, 0x40045564, ev));
+            [272, 29].forEach(key => ioctl_int(fd, 0x40045565, key));
+            [0, 1, 8].forEach(rel => ioctl_int(fd, 0x40045566, rel));
 
             const setup = { id_bustype: 0x03, id_vendor: 0x1234, id_product: 0x5678, id_version: 1, name: Array.from('rein-webrtc-input').map(c => c.charCodeAt(0)).concat(new Array(62).fill(0)), ff_effects_max: 0 };
-            ioctl_ptr(fd, 0x405c5503, setup); // UI_DEV_SETUP
-            ioctl_int(fd, 0x5501, 0); // UI_DEV_CREATE
+            ioctl_ptr(fd, 0x405c5503, setup);
+            ioctl_int(fd, 0x5501, 0);
 
             const emit = (t, c, v) => write_event(fd, { tv_sec: 0, tv_usec: 0, type: t, code: c, value: v }, koffi.sizeof(input_event));
             driver = {
@@ -94,6 +94,8 @@ if (platform === 'win32') {
         }
 
         const source = CGEventSourceCreate(0);
+        const kCmdFlag = 0x00100000;
+
         driver = {
             move(dx, dy) {
                 const pos = getMousePos();
@@ -109,13 +111,13 @@ if (platform === 'win32') {
                 CGEventPost(0, up); CFRelease(up);
             },
             scroll(delta) {
-                // Using 1 for units (kCGScrollEventUnitLine) instead of 0 (Pixel) for visibility
                 const ev = CGEventCreateScrollWheelEvent(source, 1, 1, Math.round(delta / 5) || (delta > 0 ? 1 : -1));
                 CGEventPost(0, ev); CFRelease(ev);
             },
             zoom(delta) {
+                // Command + Scroll is the native macOS zoom shortcut for apps
                 const ev = CGEventCreateScrollWheelEvent(source, 1, 1, Math.round(delta / 5) || (delta > 0 ? 1 : -1));
-                CGEventSetFlags(ev, 0x40000 | 0x100000);
+                CGEventSetFlags(ev, kCmdFlag);
                 CGEventPost(0, ev); CFRelease(ev);
             }
         };
@@ -138,7 +140,6 @@ wss.on('connection', (ws) => {
                 if (!rooms.has(roomId)) rooms.set(roomId, new Set());
                 rooms.get(roomId).add(ws);
             } else if (type === 'input') {
-                console.log(`[Input] ${payload.type} | Room: ${currentRoom}`);
                 if (driver) {
                     if (payload.type === 'move') driver.move(payload.dx, payload.dy);
                     else if (payload.type === 'click') driver.click();

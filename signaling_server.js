@@ -101,12 +101,15 @@ if (platform === 'win32') {
                 const pos = getMousePos();
                 const target = { x: pos.x + dx, y: pos.y + dy };
                 const ev = CGEventCreateMouseEvent(source, 5, target, 0);
+                CGEventSetFlags(ev, 0);
                 CGEventPost(0, ev); CFRelease(ev);
             },
             click() {
                 const pos = getMousePos();
                 const down = CGEventCreateMouseEvent(source, 1, pos, 0);
                 const up = CGEventCreateMouseEvent(source, 2, pos, 0);
+                CGEventSetFlags(down, 0);
+                CGEventSetFlags(up, 0);
                 CGEventPost(0, down); CFRelease(down);
                 CGEventPost(0, up); CFRelease(up);
             },

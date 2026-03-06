@@ -43,13 +43,8 @@
             statusLabel.innerText = "Connected";
         });
 
-        rtc.onStatusUpdate = (msg) => {
-            statusLabel.innerText = msg;
-        };
-
-        rtc.onConnectionStateChange = (state) => {
-            statusLabel.innerText = "Connection: " + state;
-        };
+        rtc.onStatusUpdate = (msg) => { statusLabel.innerText = msg; };
+        rtc.onConnectionStateChange = (state) => { statusLabel.innerText = "Connection: " + state; };
 
         let lastX = 0, lastY = 0;
         let lastDist = 0;
@@ -58,16 +53,16 @@
         let totalMoved = 0;
 
         trackpad.addEventListener('touchstart', (e) => {
-            hasMoved = false;
-            totalMoved = 0;
             const t = e.touches;
-
             if (t.length === 1) {
                 lastX = t[0].clientX;
                 lastY = t[0].clientY;
+                hasMoved = false;
+                totalMoved = 0;
             } else if (t.length === 2) {
                 lastY = (t[0].clientY + t[1].clientY) / 2;
                 lastDist = Math.hypot(t[1].clientX - t[0].clientX, t[1].clientY - t[0].clientY);
+                hasMoved = true;
             }
             e.preventDefault();
         }, { passive: false });
@@ -76,17 +71,16 @@
             const t = e.touches;
             if (!rtc.inputChannel || rtc.inputChannel.readyState !== "open") return;
 
-            if (t.length === 1) {
+            if (t.length === 1 && !hasMoved) {
                 const dx = t[0].clientX - lastX;
                 const dy = t[0].clientY - lastY;
                 totalMoved += Math.hypot(dx, dy);
-                if (totalMoved > moveThreshold) hasMoved = true;
-
-                rtc.sendInput({ type: 'move', dx, dy });
-                lastX = t[0].clientX;
-                lastY = t[0].clientY;
+                if (totalMoved > moveThreshold) {
+                    rtc.sendInput({ type: 'move', dx, dy });
+                    lastX = t[0].clientX;
+                    lastY = t[0].clientY;
+                }
             } else if (t.length === 2) {
-                hasMoved = true;
                 const currentY = (t[0].clientY + t[1].clientY) / 2;
                 const currentDist = Math.hypot(t[1].clientX - t[0].clientX, t[1].clientY - t[0].clientY);
 
@@ -94,40 +88,27 @@
                 const dd = currentDist - lastDist;
 
                 if (Math.abs(dd) > Math.abs(dy) * 1.5) {
-                    // It's a pinch
-                    if (Math.abs(dd) > 2) {
-                        rtc.sendInput({ type: 'zoom', delta: dd * 5 });
-                    }
+                    if (Math.abs(dd) > 1) rtc.sendInput({ type: 'zoom', delta: dd * 2 });
                 } else if (Math.abs(dy) > 1) {
-                    // It's a scroll
-                    rtc.sendInput({ type: 'scroll', delta: dy * 10 });
+                    rtc.sendInput({ type: 'scroll', delta: dy * 2 });
                 }
 
                 lastY = currentY;
                 lastDist = currentDist;
             } else if (t.length === 3) {
-                hasMoved = true;
                 statusLabel.innerText = "3-Finger Gesture";
             }
-
             e.preventDefault();
         }, { passive: false });
 
         trackpad.addEventListener('touchend', (e) => {
-            if (e.touches.length === 0 && !hasMoved) {
-                if (rtc.inputChannel && rtc.inputChannel.readyState === "open") {
-                    rtc.sendInput({ type: 'click' });
-                }
-            }
             if (e.touches.length === 0) {
+                if (!totalMoved && !hasMoved) rtc.sendInput({ type: 'click' });
                 setTimeout(() => { if (statusLabel.innerText.includes("Gesture")) statusLabel.innerText = "Connected"; }, 1000);
             }
         });
 
-        document.body.addEventListener('click', () => {
-            if (videoElem.paused) videoElem.play();
-        }, { once: true });
-
+        document.body.addEventListener('click', () => { if (videoElem.paused) videoElem.play(); }, { once: true });
         rtc.init();
     </script>
 </body>

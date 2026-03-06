@@ -79,7 +79,6 @@ if (platform === 'win32') {
         const CGPoint = koffi.struct('CGPoint', { x: 'double', y: 'double' });
         const CGEventSourceCreate = cg.func('void* CGEventSourceCreate(int stateID)');
         const CGEventCreateMouseEvent = cg.func('void* CGEventCreateMouseEvent(void *source, int mouseType, CGPoint mouseCursorPosition, int mouseButton)');
-        const CGEventCreateKeyboardEvent = cg.func('void* CGEventCreateKeyboardEvent(void *source, uint16_t virtualKey, bool keyDown)');
         const CGEventCreateScrollWheelEvent = cg.func('void* CGEventCreateScrollWheelEvent(void *source, int units, uint32_t wheelCount, int32_t wheel1)');
         const CGEventPost = cg.func('void CGEventPost(int tap, void *event)');
         const CGEventSetFlags = cg.func('void CGEventSetFlags(void *event, uint64_t flags)');
@@ -99,23 +98,24 @@ if (platform === 'win32') {
             move(dx, dy) {
                 const pos = getMousePos();
                 const target = { x: pos.x + dx, y: pos.y + dy };
-                const ev = CGEventCreateMouseEvent(source, 5, target, 0); // kCGEventMouseMoved
+                const ev = CGEventCreateMouseEvent(source, 5, target, 0);
                 CGEventPost(0, ev); CFRelease(ev);
             },
             click() {
                 const pos = getMousePos();
-                const down = CGEventCreateMouseEvent(source, 1, pos, 0); // kCGEventLeftMouseDown
-                const up = CGEventCreateMouseEvent(source, 2, pos, 0); // kCGEventLeftMouseUp
+                const down = CGEventCreateMouseEvent(source, 1, pos, 0);
+                const up = CGEventCreateMouseEvent(source, 2, pos, 0);
                 CGEventPost(0, down); CFRelease(down);
                 CGEventPost(0, up); CFRelease(up);
             },
             scroll(delta) {
-                const ev = CGEventCreateScrollWheelEvent(source, 0, 1, Math.round(delta / 10));
+                // Using 1 for units (kCGScrollEventUnitLine) instead of 0 (Pixel) for visibility
+                const ev = CGEventCreateScrollWheelEvent(source, 1, 1, Math.round(delta / 5) || (delta > 0 ? 1 : -1));
                 CGEventPost(0, ev); CFRelease(ev);
             },
             zoom(delta) {
-                const ev = CGEventCreateScrollWheelEvent(source, 0, 1, Math.round(delta / 10));
-                CGEventSetFlags(ev, 0x40000 | 0x100000); // Control + Command flags
+                const ev = CGEventCreateScrollWheelEvent(source, 1, 1, Math.round(delta / 5) || (delta > 0 ? 1 : -1));
+                CGEventSetFlags(ev, 0x40000 | 0x100000);
                 CGEventPost(0, ev); CFRelease(ev);
             }
         };
@@ -124,7 +124,8 @@ if (platform === 'win32') {
 }
 
 console.log(`\n--- Rein Cross-Platform Signaling Server ---`);
-console.log(`Listening on ws://0.0.0.0:${port}\n`);
+console.log(`Listening on ws://0.0.0.0:${port}`);
+console.log(`Platform: ${platform}\n`);
 
 wss.on('connection', (ws) => {
     let currentRoom = null;
@@ -136,11 +137,14 @@ wss.on('connection', (ws) => {
                 currentRoom = roomId;
                 if (!rooms.has(roomId)) rooms.set(roomId, new Set());
                 rooms.get(roomId).add(ws);
-            } else if (type === 'input' && driver) {
-                if (payload.type === 'move') driver.move(payload.dx, payload.dy);
-                else if (payload.type === 'click') driver.click();
-                else if (payload.type === 'scroll') driver.scroll(payload.delta);
-                else if (payload.type === 'zoom') driver.zoom(payload.delta);
+            } else if (type === 'input') {
+                console.log(`[Input] ${payload.type} | Room: ${currentRoom}`);
+                if (driver) {
+                    if (payload.type === 'move') driver.move(payload.dx, payload.dy);
+                    else if (payload.type === 'click') driver.click();
+                    else if (payload.type === 'scroll') driver.scroll(payload.delta);
+                    else if (payload.type === 'zoom') driver.zoom(payload.delta);
+                }
             } else if (currentRoom && rooms.has(currentRoom)) {
                 rooms.get(currentRoom).forEach(client => {
                     if (client !== ws && client.readyState === WebSocket.OPEN) client.send(JSON.stringify({ type: 'signal', payload }));

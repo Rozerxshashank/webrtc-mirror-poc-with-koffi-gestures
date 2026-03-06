@@ -55,7 +55,12 @@
             e.preventDefault();
         }, { passive: false });
 
+        let lastMoveTime = 0;
         container.addEventListener('touchmove', (e) => {
+            const now = Date.now();
+            if (now - lastMoveTime < 16) return; // ~60fps throttle
+            lastMoveTime = now;
+
             const t = e.touches;
             if (!rtc.inputChannel || rtc.inputChannel.readyState !== "open") return;
 

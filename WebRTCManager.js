@@ -82,7 +82,14 @@ class WebRTCManager {
                 audio: false
             });
 
-            stream.getTracks().forEach(track => this.pc.addTrack(track, stream));
+            stream.getTracks().forEach(track => {
+                if (track.kind === 'video') {
+                    if (track.contentHint !== undefined) {
+                        track.contentHint = 'motion';
+                    }
+                }
+                this.pc.addTrack(track, stream);
+            });
 
             const offer = await this.pc.createOffer();
             await this.pc.setLocalDescription(offer);
